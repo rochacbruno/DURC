@@ -70,7 +70,7 @@ Also the yaml file should be **Reproducible** by automation, that means a person
 
 Example of a **Case**:
 
-`case_positive_login_with_kerberos.yaml`
+`case_positive_login_with_user.yaml`
 
 ```yaml
 ---
@@ -97,7 +97,7 @@ tasks:
 
     - name: Create a user `foo` on the web system
       durc_api:
-        handler: myproduct.user.create
+        handler: myproduct.user.create  # custom handlers by product
         data: username=foo password=bar
         register: created_user
         cleanup: created_user.delete
@@ -113,7 +113,7 @@ tasks:
     - name: Fill the Login Form
       durc_ui:
         object: login_form
-        fill: 
+        fill:
           username: created_user.username
           password: created_user.password.uncrypted
         submit: true
@@ -121,21 +121,21 @@ tasks:
 
   - block: Assert
 
-    - name: Login was succesfull
+    - name: Login was successful
       durc_assert:
         contains:
           object: response.content
           item: "Logged in as user:"
 ```
 
-Once **D**eclared and having the the product accessible on `http://localhost:8000` it should be easy to **U**understand and follow the steps ot to **R**reproduce the **Case** using:
+Once **D**eclared and having the the product accessible on `http://localhost:8000` it should be easy to **U**understand and follow the steps ot to **R**eproduce the **Case** using:
 
 ```bash
-durc reproduce case_positive_login_with_kerberos.yaml
+$ durc reproduce case_positive_login_with_user.yaml
 
 # or
 
-docker run durc/durc reproduce case_positive_login_with_kerberos.yaml
+$ docker run durc/durc reproduce case_positive_login_with_user.yaml
 ```
 
 ### Metrics
