@@ -74,59 +74,56 @@ Example of a **Case**:
 
 ```yaml
 ---
-vars:
-  urls:
-    login_page: http://localhost:8000/login
+- hosts: localhost
+  gather_facts: no
+  vars:
+    urls:
+      login_page: http://localhost:8000/login
 
-tasks:
-  
-  - block: Meta
+  tasks:
 
-    - durc_metadata:
-      id: 12345
-      description: This case reproduces the user login workflow.
-      level: Critical
-      customerscenario: true
+    - block: Meta
 
-    - durc_conditions:
-      skip_if:
-        bugzilla:
-          status: open
-          number: 456789
+      - durc_metadata:
+          id: 12345
+          description: This case reproduces the user login workflow.
+          level: Critical
+          customerscenario: true
 
-  - block: Arrange
+      - durc_skip:
+          bugzilla_is_open: 456789
 
-    - name: Create a user `foo` on the web system
-      durc_api:
-        handler: myproduct.user.create  # custom handlers by product
-        data: username=foo password=bar
+    - block: Arrange
+
+      - name: Create a user `foo` on the web system
+        durc_api:
+          handler: myproduct.user.create  # custom handlers by product
+          data: username=foo password=bar
+          cleanup: created_user.delete
         register: created_user
-        cleanup: created_user.delete
 
-  - block: Act
+    - block: Act
 
-    - name: Navigate to Login page
-      durc_ui:
-        open: "{{ urls.login_page }}"
-        wait_for: "{{ css('#login_form') }}"
-      register: login_form
+      - name: Navigate to Login page
+        durc_ui:
+          open: "{{ urls.login_page }}"
+          wait_for: "{{ css('#login_form') }}"
+        register: login_form
 
-    - name: Fill the Login Form
-      durc_ui:
-        object: login_form
-        fill:
-          username: created_user.username
-          password: created_user.password.uncrypted
-        submit: true
-      register: response
+      - name: Fill the Login Form
+        durc_ui:
+          object: login_form
+          fill:
+            username: created_user.username
+            password: created_user.password.uncrypted
+          submit: true
+        register: response
 
-  - block: Assert
+    - block: Assert
 
-    - name: Login was successful
-      durc_assert:
-        contains:
-          object: response.content
-          item: "Logged in as user:"
+      - name: Login was successful
+        assert:
+          that: "Logged in as user:" in response.content
 ```
 
 Once **D**eclared and having the the product accessible on `http://localhost:8000` it should be easy to **U**understand and follow the steps ot to **R**eproduce the **Case** using:
@@ -146,12 +143,13 @@ $ docker run durc/durc reproduce case_positive_login_with_user.yaml
 - Readable by non programmers
 - Writable by non programers
 - Declarative
+- Abstracted
 - Strict (can be validated)
-- Effortless environment
+- Effortless environment (ansible-runner container image)
 
 #### CONS
 
-- Verbose - 60 lines of YAML
+- Verbose - 50 lines of YAML (but actually the same as our Python example below)
 
 ------
 
@@ -221,14 +219,14 @@ $ py.test -v test_positive_login_with_user.py --junit=report.xml --other --optio
 
 #### PROS
 
-- Less verbose - 50 lines (not too much better compared with 60 of YAML)
+- Flexibility (for programmers only)
 
 #### CONS
 
 - Writable only by programmers
 - Readable mostly only by programmers
 - Python environment is sometimes tricky to setup
-- Too much dynamic (we can have linters for code style but not easy to check test correctness)
+- Too much flexible (we can have linters for code style but not easy to check test correctness)
 - Code is more difficult to maintain and review
 
 ### Metrics

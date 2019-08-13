@@ -1,0 +1,16 @@
+#In [1]: from ansible_runner.runner import ansible_runner
+#In [2]: result = ansible_runner.run(playbook='./examples/simple/test_something.yaml', verbosity=True) 
+#TASK [Assert that msg is World] ************************************************
+#ok: [localhost] => {
+#    "changed": false,
+#    "msg": "All assertions passed"
+#}
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    msg: World
+  tasks:
+    - name: Assert that msg is World
+      assert:
+        that: msg == 'World'
