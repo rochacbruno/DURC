@@ -79,51 +79,49 @@ Example of a **Case**:
   vars:
     urls:
       login_page: http://localhost:8000/login
-
   tasks:
 
-    - block: Meta
-
-      - durc_metadata:
+    - name: Meta
+      block: 
+        - durc_metadata:
           id: 12345
           description: This case reproduces the user login workflow.
           level: Critical
           customerscenario: true
+        - durc_skip:
+            bugzilla_is_open: 456789
 
-      - durc_skip:
-          bugzilla_is_open: 456789
+    - name: Arrange
+      block:
+        - name: Create a user `foo` on the web system
+          durc_api:
+            handler: myproduct.user.create  # custom handlers by product
+            data: username=foo password=bar
+            cleanup: created_user.delete
+          register: created_user
 
-    - block: Arrange
+    - name: Act
+      block:
+        - name: Navigate to Login page
+          durc_ui:
+            open: "{{ urls.login_page }}"
+            wait_for: "{{ css('#login_form') }}"
+          register: login_form
 
-      - name: Create a user `foo` on the web system
-        durc_api:
-          handler: myproduct.user.create  # custom handlers by product
-          data: username=foo password=bar
-          cleanup: created_user.delete
-        register: created_user
+        - name: Fill the Login Form
+          durc_ui:
+            object: login_form
+            fill:
+              username: created_user.username
+              password: created_user.password.uncrypted
+            submit: true
+          register: response
 
-    - block: Act
-
-      - name: Navigate to Login page
-        durc_ui:
-          open: "{{ urls.login_page }}"
-          wait_for: "{{ css('#login_form') }}"
-        register: login_form
-
-      - name: Fill the Login Form
-        durc_ui:
-          object: login_form
-          fill:
-            username: created_user.username
-            password: created_user.password.uncrypted
-          submit: true
-        register: response
-
-    - block: Assert
-
-      - name: Login was successful
-        assert:
-          that: "Logged in as user:" in response.content
+    - name: Assert
+      block:
+        - name: Login was successful
+          assert:
+            that: "'Logged in as user' in response.content"
 ```
 
 Once **D**eclared and having the the product accessible on `http://localhost:8000` it should be easy to **U**understand and follow the steps ot to **R**eproduce the **Case** using:
@@ -149,11 +147,11 @@ $ docker run durc/durc reproduce case_positive_login_with_user.yaml
 
 #### CONS
 
-- Verbose - 50 lines of YAML (but actually the same as our Python example below)
+- Verbose - 48 lines of YAML
 
 ------
 
-Now lets compare the same written in Python.
+Now lets compare the same written in 52 lines of Python.
 
 `test_positive_login_with_user.py`
 
@@ -177,7 +175,9 @@ class UserLoginTestCase(unittest.TestCase):
 
     def setUp(self):
         """Arrange step."""
-        self.created_user = myproductlib.user.create(username='foo', password='bar')
+        self.created_user = myproductlib.user.create(
+            username='foo', password='bar'
+        )
 
     def tearDown(self):
         """Arrange step teardown"""
@@ -188,7 +188,6 @@ class UserLoginTestCase(unittest.TestCase):
         """This case reproduces the user login workflow.
 
         :id: 12345
-        :description: 
         :level: Critical
         :customerscenario: true
         """
@@ -207,6 +206,7 @@ class UserLoginTestCase(unittest.TestCase):
 
         # Assert
         self.assertIn("Logged in as user:", driver.get_attribute('inner_html'))
+
 ```
 
 and then to run it:

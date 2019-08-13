@@ -1,0 +1,50 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    urls:
+      login_page: http://localhost:8000/login
+  tasks:
+
+    - name: Meta
+      block: 
+        - durc_metadata:
+          id: 12345
+          description: This case reproduces the user login workflow.
+          level: Critical
+          customerscenario: true
+        - durc_skip:
+            bugzilla_is_open: 456789
+
+    - name: Arrange
+      block:
+        - name: Create a user `foo` on the web system
+          durc_api:
+            handler: myproduct.user.create  # custom handlers by product
+            data: username=foo password=bar
+            cleanup: created_user.delete
+          register: created_user
+
+    - name: Act
+      block:
+        - name: Navigate to Login page
+          durc_ui:
+            open: "{{ urls.login_page }}"
+            wait_for: "{{ css('#login_form') }}"
+          register: login_form
+
+        - name: Fill the Login Form
+          durc_ui:
+            object: login_form
+            fill:
+              username: created_user.username
+              password: created_user.password.uncrypted
+            submit: true
+          register: response
+
+    - name: Assert
+      block:
+        - name: Login was successful
+          assert:
+            that: "'Logged in as user' in response.content"
+...
