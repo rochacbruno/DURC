@@ -75,7 +75,7 @@ Example of a **Case**:
 ```yaml
 ---
 vars:
-  locators:
+  urls:
     login_page: http://localhost:8000/login
 
 tasks:
@@ -84,6 +84,7 @@ tasks:
 
     - durc_metadata:
       id: 12345
+      description: This case reproduces the user login workflow.
       level: Critical
       customerscenario: true
 
@@ -106,7 +107,7 @@ tasks:
 
     - name: Navigate to Login page
       durc_ui:
-        open: "{{ locators.login_page }}"
+        open: "{{ urls.login_page }}"
         wait_for: "{{ css('#login_form') }}"
       register: login_form
 
@@ -131,12 +132,104 @@ tasks:
 Once **D**eclared and having the the product accessible on `http://localhost:8000` it should be easy to **U**understand and follow the steps ot to **R**eproduce the **Case** using:
 
 ```bash
+$ pip install ansible-durc
 $ durc reproduce case_positive_login_with_user.yaml
 
 # or
 
+$ dnf install docker
 $ docker run durc/durc reproduce case_positive_login_with_user.yaml
 ```
+
+#### PROS
+
+- Readable by non programmers
+- Writable by non programers
+- Declarative
+- Strict (can be validated)
+- Effortless environment
+
+#### CONS
+
+- Verbose - 60 lines of YAML
+
+------
+
+Now lets compare the same written in Python.
+
+`test_positive_login_with_user.py`
+
+```py
+# coding: utf-8
+"""Test module description"""
+import unittest
+import myproductlib
+
+from selenium import webdriver
+from some_module.decorators import skip_if, bug_is_open
+
+
+driver = driver = webdriver.Chrome()
+
+urls = {'login_page': 'http://localhost:8000/login'}
+
+
+class UserLoginTestCase(unittest.TestCase):
+    """This class tests user login."""
+
+    def setUp(self):
+        """Arrange step."""
+        self.created_user = myproductlib.user.create(username='foo', password='bar')
+
+    def tearDown(self):
+        """Arrange step teardown"""
+        self.created_user.delete()
+
+    @skip_if(bug_is_open("bugzilla", 456789))
+    def test_positive_login_with_user(self):
+        """This case reproduces the user login workflow.
+
+        :id: 12345
+        :description: 
+        :level: Critical
+        :customerscenario: true
+        """
+        # Act
+        driver.get(urls['login_page'])
+
+        username = driver.find_element_by_name("username")
+        username.clear()
+        username.send_keys(self.created_user.username)
+
+        password = driver.find_element_by_name("password")
+        password.clear()
+        password.send_keys(self.created_user.password)
+
+        driver.find_element_by_css("#login_form.input[type=submit]").click()
+
+        # Assert
+        self.assertIn("Logged in as user:", driver.get_attribute('inner_html'))
+```
+
+and then to run it:
+
+```bash
+$ dnf install chrome-driver
+$ pip install pytest selenium
+$ py.test -v test_positive_login_with_user.py --junit=report.xml --other --options
+```
+
+#### PROS
+
+- Less verbose - 50 lines (not too much better compared with 60 of YAML)
+
+#### CONS
+
+- Writable only by programmers
+- Readable mostly only by programmers
+- Python environment is sometimes tricky to setup
+- Too much dynamic (we can have linters for code style but not easy to check test correctness)
+- Code is more difficult to maintain and review
 
 ### Metrics
 
