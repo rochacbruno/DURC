@@ -70,70 +70,62 @@ Also the yaml file should be **Reproducible** by automation, that means a person
 
 Example of a **Case**:
 
-`case_positive_login_with_user.yaml`
+
+`/case_repository_package_version.yaml`
 
 ```yaml
----
 - hosts: localhost
   gather_facts: no
   vars:
-    urls:
-      login_page: http://localhost:8000/login
+    package_repo: http://repos.org/foo/bar
   tasks:
 
-    - name: Meta
-      block: 
-        - durc_metadata:
-          id: 12345
-          description: This case reproduces the user login workflow.
-          level: Critical
-          customerscenario: true
-        - durc_skip:
-            bugzilla_is_open: 456789
+    - name: any ansible module can be used here
+      ...
 
-    - name: Arrange
-      block:
-        - name: Create a user `foo` on the web system
-          durc_api:
-            handler: myproduct.user.create  # custom handlers by product
-            data: username=foo password=bar
-            cleanup: created_user.delete
-          register: created_user
+    - name: Test repo contains package bar version 3.0.2
+      durc:
+        meta:
+          component: repositories
+          level: critical
+          strategies: ['api', 'cli', 'ui']
+          skip_if:
+             is_open: BZ456789
+        arrange:
+          - create: organization name=foo_org label=OrgFoo as foo_org
+        act:
+          - create:
+              register: foo_repo
+              repository:
+                name: foo
+                feed_url: "{ package_repo }"
+                organization: foo_org
+          - sync:
+              download_policy: immediate
+              repo: foo_repo
+        assert:
+          - contains foo_repo package_bar==3.0.2
+          - eq:
+              - foo_repo.name
+              - foo
 
-    - name: Act
-      block:
-        - name: Navigate to Login page
-          durc_ui:
-            open: "{{ urls.login_page }}"
-            wait_for: "{{ css('#login_form') }}"
-          register: login_form
+    - name: more ansible modules can be used
+      ...
 
-        - name: Fill the Login Form
-          durc_ui:
-            object: login_form
-            fill:
-              username: created_user.username
-              password: created_user.password.uncrypted
-            submit: true
-          register: response
+# After running the results of `durc` module tasks will be included in the Junit.xml report.
 
-    - name: Assert
-      block:
-        - name: Login was successful
-          assert:
-            that: "'Logged in as user' in response.content"
 ```
 
 Once **D**eclared and having the the product accessible on `http://localhost:8000` it should be easy to **U**understand and follow the steps ot to **R**eproduce the **Case** using:
 
 ```bash
 $ pip install ansible-durc
-$ durc reproduce case_positive_login_with_user.yaml
+$ durc reproduce case_repository_package_version.yaml
 
 # or
 
 $ dnf install docker
-$ docker run durc/durc reproduce case_positive_login_with_user.yaml
+$ docker run durc/durc reproduce case_repository_package_version.yaml
 ```
 
 #### PROS
@@ -145,89 +137,7 @@ $ docker run durc/durc reproduce case_positive_login_with_user.yaml
 - Strict (can be validated)
 - Effortless environment (ansible-runner container image)
 
-#### CONS
-
-- Verbose - 48 lines of YAML
-
 ------
-
-Now lets compare the same written in 52 lines of Python.
-
-`test_positive_login_with_user.py`
-
-```py
-# coding: utf-8
-"""Test module description"""
-import unittest
-import myproductlib
-
-from selenium import webdriver
-from some_module.decorators import skip_if, bug_is_open
-
-
-driver = driver = webdriver.Chrome()
-
-urls = {'login_page': 'http://localhost:8000/login'}
-
-
-class UserLoginTestCase(unittest.TestCase):
-    """This class tests user login."""
-
-    def setUp(self):
-        """Arrange step."""
-        self.created_user = myproductlib.user.create(
-            username='foo', password='bar'
-        )
-
-    def tearDown(self):
-        """Arrange step teardown"""
-        self.created_user.delete()
-
-    @skip_if(bug_is_open("bugzilla", 456789))
-    def test_positive_login_with_user(self):
-        """This case reproduces the user login workflow.
-
-        :id: 12345
-        :level: Critical
-        :customerscenario: true
-        """
-        # Act
-        driver.get(urls['login_page'])
-
-        username = driver.find_element_by_name("username")
-        username.clear()
-        username.send_keys(self.created_user.username)
-
-        password = driver.find_element_by_name("password")
-        password.clear()
-        password.send_keys(self.created_user.password)
-
-        driver.find_element_by_css("#login_form.input[type=submit]").click()
-
-        # Assert
-        self.assertIn("Logged in as user:", driver.get_attribute('inner_html'))
-
-```
-
-and then to run it:
-
-```bash
-$ dnf install chrome-driver
-$ pip install pytest selenium
-$ py.test -v test_positive_login_with_user.py --junit=report.xml --other --options
-```
-
-#### PROS
-
-- Flexibility (for programmers only)
-
-#### CONS
-
-- Writable only by programmers
-- Readable mostly only by programmers
-- Python environment is sometimes tricky to setup
-- Too much flexible (we can have linters for code style but not easy to check test correctness)
-- Code is more difficult to maintain and review
 
 ### Metrics
 
